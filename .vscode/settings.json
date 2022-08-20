@@ -1,7 +1,5 @@
 {
 	"files.associations": {
-		"*.fs": "glsl",
-		"*.shader": "glsl",
 		"main.h": "c",
 		"usart.h": "c",
 		"gpio.h": "c"

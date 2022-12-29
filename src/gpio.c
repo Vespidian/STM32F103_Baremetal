@@ -10,7 +10,7 @@
 
 void GPIOEnable(GPIO_PORTS port){
 	unsigned int *reg = (unsigned int *)RCC_APB2ENR;
-	*reg &= (1 << ((port >> 10) & 0b1111)) ^ 0xffffffff;
+	*reg &= (1 << ((port >> 10) & 0b1111)) ^ 0xffffffff; // TODO: Is this line necessary?
 	*reg |= 1 << ((port >> 10) & 0b1111);
 }
 

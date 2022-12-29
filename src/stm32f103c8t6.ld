@@ -11,5 +11,16 @@ SECTIONS{
 	.text : {
 		*(vector_table)
 		*(.text)
-	}
+	} >FLASH
+
+	.data : {
+		*(.data)
+		. = ALIGN(4);
+	} >RAM AT >FLASH
+
+	.bss : {
+		. = ALIGN(4);
+		*(.bss)
+		. = ALIGN(4);
+	} >RAM
 }

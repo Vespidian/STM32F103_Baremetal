@@ -20,6 +20,9 @@ OBJECT_FILES = $(C_SOURCES:.c=.o)
 upload: ../bin/main.bin
 	st-flash write $< 0x8000000
 
+reset:
+	st-flash reset
+
 download:
 	st-flash read ../bin/download.bin 0x8000000 0x1ff00
 

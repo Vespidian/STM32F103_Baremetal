@@ -148,18 +148,19 @@ void startup(void){
 
 /* --- Enable GPIO ports --- */
 	GPIOEnable(GPIO_PORT_A);
-	GPIOEnable(GPIO_PORT_C);
+	// GPIOEnable(GPIO_PORT_C);
 
 /* --- SETUP TIMER 1 --- */
-	TimerInit();
+	// TimerInit();
 
 /* --- SETUP PC13 (LED) --- */
-	GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
+	// GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
 
 /* --- ENABLE USART 1 --- */
 	USARTInit();
 	USARTWrite("USART Initialized!\n");
-	GPIOWrite(GPIO_PORT_C, 13, LOW); // Turn the onboard LED on (low is on)
+	// GPIOWrite(GPIO_PORT_C, 13, LOW); // Turn the onboard LED on (low is on)
+	// GPIOWrite(GPIO_PORT_C, 13, HIGH); // Turn the onboard LED OFF
 
 /* --- SETUP USB --- */
 
@@ -173,8 +174,8 @@ void startup(void){
 
 	// Send an 'a' char
 	USARTWriteByte('a');
-	unsigned int *reg = 0;
-	unsigned int loop_counter = 0;
+	// unsigned int *reg = 0;
+	// unsigned int loop_counter = 0;
 	unsigned int previous_time = RTCGetTime();
 	while(1){
 
@@ -196,17 +197,21 @@ void startup(void){
 		if(RTCGetTime() != previous_time){
 			USARTWriteInt(previous_time = RTCGetTime());
 			USARTWriteByte('\n');
+			// if(previous_time == 30){
+			// 	USARTWrite("TIME!\n");
+			// }
 		}
 
 
-		if(USARTReadByte() == 'f'){
-			USARTWrite("bar!\n");
-		}
+
+		// if(USARTReadByte() == 'f'){
+		// 	USARTWrite("bar!\n");
+		// }
 
 		// Fade led in and out using pwm and a sine function
-		reg = (unsigned int *)TIMER1_ADDR_CCR1;
-		*reg = (custom_sin((loop_counter / 500)) + 32767) / 512;
-		loop_counter++;
+		// reg = (unsigned int *)TIMER1_ADDR_CCR1;
+		// *reg = (custom_sin((loop_counter / 500)) + 32767) / 512;
+		// loop_counter++;
 
 	}
 	

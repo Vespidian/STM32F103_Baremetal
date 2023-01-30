@@ -132,8 +132,8 @@ void TimerInit(){
 
 	// Enable the usart interrupt in the NVIC
 	// NVICEnableInterrupt(27);
-	reg = (unsigned int *)(NVIC); // Register NVIC_ISER1
-	*reg |= (1 << 27);
+	// reg = (unsigned int *)(NVIC); // Register NVIC_ISER1
+	// *reg |= (1 << 27);
 
 	// Disable the timer
 	reg = (unsigned int *)TIMER1_ADDR_CR1;

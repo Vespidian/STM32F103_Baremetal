@@ -18,18 +18,21 @@ typedef unsigned long uint64_t;
 
 #define FREQUENCY 72000000
 
-// NVIC addresses found in the Cortex-M3 programming manual
-#define NVIC			0xE000E100
-
+// Flash storage access control register?
 #define FLASH_ACR		0x40022000
 
 // Register addresses can be found on page 40 of the stm32f103 manual
+// #define RCC_ADDR		0x40021000
+// #define RCC_CR		 	RCC_ADDR + 0x00
+// #define RCC_CFGR	 	RCC_ADDR + 0x04
+// #define RCC_APB2ENR 	RCC_ADDR + 0x18
+// #define RCC_APB1ENR 	RCC_ADDR + 0x1C
+// #define RCC_BDCR	 	RCC_ADDR + 0x20
 #define RCC_CR		 	0x40021000
 #define RCC_CFGR	 	0x40021004
 #define RCC_APB2ENR 	0x40021018
 #define RCC_APB1ENR 	0x4002101C
-
-
+#define RCC_BDCR	 	0x40021020
 
 typedef union RCC{
 	uint32_t data;
@@ -66,9 +69,42 @@ typedef union RCC{
 		uint8_t 		: 5;	// .
 	}CFGR;
 
-	struct ABP2ENR{
+	struct APB2ENR{
+		uint8_t AFIOEN	: 1; // Alternate function IO clock enable
+		uint8_t 		: 1; // .
+		uint8_t IOPAEN	: 1; // IO port A clock enable
+		uint8_t IOPBEN	: 1; // IO port B clock enable
+		uint8_t IOPCEN	: 1; // IO port C clock enable
+		uint8_t IOPDEN	: 1; // IO port D clock enable
+		uint8_t IOPEEN	: 1; // IO port E clock enable
+		uint8_t IOPFEN	: 1; // IO port F clock enable
+		uint8_t IOPGEN	: 1; // IO port G clock enable
+		uint8_t ADC1EN	: 1; // ADC1 interface clock enable
+		uint8_t ADC2EN	: 1; // ADC2 interface clock enable
+		uint8_t TIM1EN	: 1; // TIM1 timer clock enable
+		uint8_t SPI1EN	: 1; // SPI1 clock enable
+		uint8_t TIM8EN	: 1; // TIM8 timer clock enable
+		uint8_t USART1EN: 1; // USART1 clock enable
+		uint8_t ADC3EN	: 1; // ADC3 interface clock enable
+		uint8_t 		: 3; // .
+		uint8_t TIM9EN	: 1; // TIM9 timer clock enable
+		uint8_t TIM10EN	: 1; // TIM10 timer clock enable
+		uint8_t TIM11EN	: 1; // TIM11 timer clock enable
+		uint16_t 		: 10;// .
+	}APB2ENR;
 
-	}ABP2ENR;
+	// Backup domain control register
+	struct BDCR{
+		uint8_t LSEON	: 1; // External low-speed oscillator enable
+		uint8_t LSERDY	: 1; // External low-speed oscillator ready
+		uint8_t LSYBYP	: 1; // External low-speed oscillator bypass
+		uint8_t 		: 5; // .
+		uint8_t RTCSEL	: 1; // RTC clock source selection
+		uint8_t 		: 5; // .
+		uint8_t RTCEN	: 1; // RTC clock enable
+		uint8_t BDRST	: 1; // Back up domain software reset
+		uint16_t 		:15; // .
+	}BDCR;
 }RCC;
 
 typedef union FLASH{

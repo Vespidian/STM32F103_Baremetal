@@ -1,4 +1,5 @@
 #include "main.h"
+#include "nvic.h"
 #include "gpio.h"
 #include "timer.h"
 #include "usart.h" // TMP
@@ -130,13 +131,14 @@ void TimerInit(){
 	volatile unsigned int *reg = 0;
 
 	// Enable the usart interrupt in the NVIC
+	// NVICEnableInterrupt(27);
 	reg = (unsigned int *)(NVIC); // Register NVIC_ISER1
 	*reg |= (1 << 27);
 
 	// Disable the timer
 	reg = (unsigned int *)TIMER1_ADDR_CR1;
 	tim.data = *reg;
-	tim.CR1.CEN = 0;
+		tim.CR1.CEN = 0;
 	*reg = tim.data;
 
 	// Enable the TIM1 peripheral
@@ -146,41 +148,41 @@ void TimerInit(){
 
 	reg = (unsigned int *)TIMER1_ADDR_CCER;
 	tim.data = *reg;
-	tim.CCER.CC1E = 1;
+		tim.CCER.CC1E = 1;
 	*reg = tim.data;
 
 	// Set timer to output compare mode and pwm mode 1
 	reg = (unsigned int *)(TIMER1_ADDR_CCMR1);
 	tim.data = *reg;
-	tim.CCMR_OUTPUT_COMPARE.CC1S = 0; 	// Output compare mode
-	tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_PWM_1;
-	// tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_TOGGLE;
-	tim.CCMR_OUTPUT_COMPARE.OC1PE = 1; 	// Enable preload
+		tim.CCMR_OUTPUT_COMPARE.CC1S = 0; 	// Output compare mode
+		tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_PWM_1;
+		// tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_TOGGLE;
+		tim.CCMR_OUTPUT_COMPARE.OC1PE = 1; 	// Enable preload
 	*reg = tim.data;
 
 	// Enable auto reload preload
 	reg = (unsigned int *)(TIMER1_ADDR_CR1);
 	tim.data = *reg;
-	tim.CR1.ARPE = 1;
+		tim.CR1.ARPE = 1;
 	*reg = tim.data;
 
 	// Enable output compare ch1 interrupt
 	reg = (unsigned int *)(TIMER1_ADDR_DIER);
 	tim.data = *reg;
-	tim.DIER.CC1IE = 1;
+		tim.DIER.CC1IE = 1;
 	*reg = tim.data;
 
 	// Enable update generation
 	reg = (unsigned int *)(TIMER1_ADDR_EGR);
 	tim.data = *reg;
-	tim.EGR.UG = 1;
-	tim.EGR.CC1G = 1;
+		tim.EGR.UG = 1;
+		tim.EGR.CC1G = 1;
 	*reg = tim.data;
 
 	// Enable main output (Only for OC mode)
 	reg = (unsigned int *)(TIMER1_ADDR_BDTR);
 	tim.data = *reg;
-	tim.BDTR.MOE = 1;
+		tim.BDTR.MOE = 1;
 	*reg = tim.data;
 
 	// Set the timer's prescaler
@@ -198,7 +200,7 @@ void TimerInit(){
 	// Enable the timer
 	reg = (unsigned int *)TIMER1_ADDR_CR1;
 	tim.data = *reg;
-	tim.CR1.CEN = 1;
+		tim.CR1.CEN = 1;
 	*reg = tim.data;
 }
 

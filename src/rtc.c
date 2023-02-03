@@ -2,34 +2,50 @@
 #include "nvic.h"
 #include "rtc.h"
 
+#include "pwr.h"
+
 void InitRTC(){
 	RCC rcc;
+	PWR pwr;
 	RTC rtc;
 	unsigned int *reg;
+
+	// Enable power and backup interfaces
+    reg = (unsigned int *)RCC_APB1ENR;
+	rcc.data = *reg;
+		rcc.APB1ENR.BKPEN = 1;
+		rcc.APB1ENR.PWREN = 1;
+	*reg = rcc.data;
+
+	// Disable backup register write protection
+    reg = (unsigned int *)PWR_CR;
+	pwr.data = *reg;
+		pwr.CR.DBP = 1;
+	*reg = pwr.data;
 
     reg = (unsigned int *)RCC_BDCR;
 	rcc.data = *reg;
 		rcc.BDCR.LSEON = 1;
-	*reg = rcc.data;
-	while(((*reg >> 1) & 1) == 0);
-	rcc.BDCR.RTCEN = 1;
-	rcc.BDCR.RTCSEL = 0b01; // LSE clock selected as RTC clock source
-	// rcc.BDCR.BDRST = 1;
-	// rcc.BDCR.RTCEN = 0;
+		rcc.BDCR.RTCEN = 1;
+		rcc.BDCR.RTCSEL = 0b01; // LSE clock selected as RTC clock source
+		rcc.BDCR.BDRST = 1;
 	*reg = rcc.data;
 
+	while(((*(unsigned int *)RCC_BDCR >> 1) & 1) == 0); // Wait for LSE to be ready
+
+
+	// Enter configuration mode
+    reg = (unsigned int *)RTC_CRL;
+	rtc.data = *reg;
+		rtc.CRL.CNF = 1;
+	*reg = rtc.data;
 
     reg = (unsigned int *)RTC_CRH;
 	rtc.data = *reg;
 		rtc.CRH.ALRIE = 1;
 	*reg = rcc.data;
 
-	// Wait until previous write operation is done and enter configuration mode
-    reg = (unsigned int *)RTC_CRL;
-	while(((*reg >> 5) & 1) == 0);
-	rtc.data = *reg;
-		rtc.CRL.CNF = 1;
-	*reg = rtc.data;
+	while(((*(unsigned int *)RTC_CRL >> 5) & 1) == 0); // Wait for the RTC write operation to be completed
 
 
 	uint32_t prescaler = 32767;
@@ -45,13 +61,16 @@ void InitRTC(){
 		rtc.PRLL = prescaler & 0xffff;
 	*reg = rtc.data;
 
+	while(((*(unsigned int *)RTC_CRL >> 5) & 1) == 0); // Wait for the RTC write operation to be completed
+
 
 	// Exit configuration mode and wait until the configuration write is done
     reg = (unsigned int *)RTC_CRL;
 	rtc.data = *reg;
 		rtc.CRL.CNF = 0;
 	*reg = rtc.data;
-	while(((*reg >> 5) & 1) == 0);
+
+	while(((*(unsigned int *)RTC_CRL >> 5) & 1) == 0); // Wait for the RTC write operation to be completed
 
 	// Enable the rtc interrupt in the NVIC
 	NVICEnableInterrupt(3);
@@ -72,6 +91,9 @@ unsigned int RTCGetTime(){
 }
 
 #include "usart.h"
+#include "gpio.h"
+bool led = false;
 void RTCInterrupt(){
-	USARTWrite("tick\n");
+	GPIOWrite(GPIO_PORT_C, 13, led);
+	led = !led;
 }

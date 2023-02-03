@@ -93,6 +93,38 @@ typedef union RCC{
 		uint16_t 		: 10;// .
 	}APB2ENR;
 
+	struct APB1ENR{
+		uint8_t TIM2EN	: 1; // TIM2 timer clock enable
+		uint8_t TIM3EN	: 1; // TIM3 timer clock enable
+		uint8_t TIM4EN	: 1; // TIM4 timer clock enable
+		uint8_t TIM5EN	: 1; // TIM5 timer clock enable
+		uint8_t TIM6EN	: 1; // TIM6 timer clock enable
+		uint8_t TIM7EN	: 1; // TIM7 timer clock enable
+		uint8_t TIM12EN	: 1; // TIM12 timer clock enable
+		uint8_t TIM13EN	: 1; // TIM13 timer clock enable
+		uint8_t TIM14EN	: 1; // TIM14 timer clock enable
+		uint8_t 		: 2; // .
+		uint8_t WWDGEN	: 1; // Window watchdog clock enable
+		uint8_t 		: 2; // .
+		uint8_t SPI2EN	: 1; // SPI2 clock enable
+		uint8_t SPI3EN	: 1; // SPI3 clock enable
+		uint8_t 		: 1; // .
+		uint8_t USART2EN: 1; // USART2 clock enable
+		uint8_t USART3EN: 1; // USART3 clock enable
+		uint8_t USART4EN: 1; // USART4 clock enable
+		uint8_t USART5EN: 1; // USART5 clock enable
+		uint8_t I2C1	: 1; // I2C1 clock enable
+		uint8_t I2C2	: 1; // I2C2 clock enable
+		uint8_t USBEN	: 1; // USB clock enable
+		uint8_t 		: 1; // .
+		uint8_t CANEN	: 1; // CAN clock enable
+		uint8_t 		: 1; // .
+		uint8_t BKPEN	: 1; // Backup interface clock enable
+		uint8_t PWREN	: 1; // Power interface clock enable
+		uint8_t DACEN	: 1; // DAC interface clock enable
+		uint8_t 		: 2; // .
+	}APB1ENR;
+
 	// Backup domain control register
 	struct BDCR{
 		uint8_t LSEON	: 1; // External low-speed oscillator enable

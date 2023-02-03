@@ -195,6 +195,7 @@ void startup(void){
 		// }
 		if(RTCGetTime() != previous_time){
 			USARTWriteInt(previous_time = RTCGetTime());
+			USARTWriteByte('\n');
 		}
 
 

@@ -144,17 +144,17 @@ void SetClock_72MHz(){
 void startup(void){
 
 /* --- CHANGE CLOCK SPEED --- */
-	SetClock_72MHz();
+	// SetClock_72MHz();
 
 /* --- Enable GPIO ports --- */
 	GPIOEnable(GPIO_PORT_A);
-	// GPIOEnable(GPIO_PORT_C);
+	GPIOEnable(GPIO_PORT_C);
 
 /* --- SETUP TIMER 1 --- */
 	// TimerInit();
 
 /* --- SETUP PC13 (LED) --- */
-	// GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
+	GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
 
 /* --- ENABLE USART 1 --- */
 	USARTInit();
@@ -172,8 +172,6 @@ void startup(void){
 /* --- SETUP RTC --- */
 	InitRTC();
 
-	// Send an 'a' char
-	USARTWriteByte('a');
 	// unsigned int *reg = 0;
 	// unsigned int loop_counter = 0;
 	unsigned int previous_time = RTCGetTime();
@@ -207,6 +205,17 @@ void startup(void){
 		// if(USARTReadByte() == 'f'){
 		// 	USARTWrite("bar!\n");
 		// }
+		switch(USARTReadByte()){
+			case 't': // Print out the current RTC counter
+				USARTWriteInt(RTCGetTime());
+				USARTWriteByte('\n');
+				break;
+			case 'r': // Reset the RTC counter
+				RTCSetCounter(0);
+				break;
+			default:
+				break;
+		}
 
 		// Fade led in and out using pwm and a sine function
 		// reg = (unsigned int *)TIMER1_ADDR_CCR1;

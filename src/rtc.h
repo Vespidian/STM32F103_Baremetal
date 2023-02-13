@@ -15,6 +15,9 @@
 #define RTC_CNTH 	0x40002818
 #define RTC_CNTL 	0x4000281C
 
+#define RTC_ALRH 	0x40002820
+#define RTC_ALRL 	0x40002824
+
 typedef union RTC{
 	uint32_t data;
 
@@ -40,6 +43,9 @@ typedef union RTC{
 	uint16_t PRLH; // RTC prescaler reload value high
 	uint16_t PRLL; // RTC prescaler reload value low
 
+	uint16_t ALRH; // RTC alarm register high
+	uint16_t ALRL; // RTC alarm register low
+
 
 }RTC;
 
@@ -47,5 +53,6 @@ void InitRTC();
 void RTCInterrupt();
 
 unsigned int RTCGetTime();
+void RTCSetCounter(uint32_t value);
 
 #endif

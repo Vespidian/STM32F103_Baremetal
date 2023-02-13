@@ -1,9 +1,15 @@
 #include "main.h"
+#include "nvic.h"
 #include "gpio.h"
 #include "usart.h"
 
 #define MANTISSA FREQUENCY / (BAUD * 16)
 #define FRACTION (((((long long)FREQUENCY * 100) / (BAUD * 16)) - (MANTISSA * 100)) * 16) / 100
+
+#define USART_ADDR_SR		0x40013800
+#define USART_ADDR_DR		0x40013804
+#define USART_ADDR_BRR		0x40013808
+#define USART_ADDR_CR1		0x4001380c
 
 typedef union USART{
 	uint32_t data;
@@ -49,19 +55,26 @@ uint8_t usart_buffer_rx_tail = 0;
 USART USART_SR_data;
 bool usart_interrupt_ready = false;
 
-void USARTInit(unsigned int baud_rate){
+void USARTSetBaud(){
+    // unsigned short mantissa = current_clock_speed / (baud * 16);
+    // unsigned short fraction = (((((long long)current_clock_speed * 100) / (baud * 16)) - (mantissa * 100)) * 16) / 100;
+	unsigned short mantissa = MANTISSA;
+	unsigned short fraction = FRACTION;
+
+	unsigned int *reg = (unsigned int *)USART_ADDR_BRR;
+    *reg = fraction | (mantissa << 4);
+}
+
+void USARTInit(){
 	// GCC doesnt 0 initialize variables properly so I do it here
 	usart_buffer_tx_head = 0;
 	usart_buffer_tx_tail = 0;
 	usart_buffer_rx_head = 0;
 	usart_buffer_rx_tail = 0;
 
-	// Set the IRP (Interrupt priority) of the usart 1 register
-	volatile unsigned int *reg = (unsigned int *)(0xE000E400 + 0x37); // Register NVIC_IPR
-	*reg |= 0x20;
-
 	// Enable the usart interrupt in the NVIC
-	reg = (unsigned int *)(NVIC + 0x4); // Register NVIC_ISER1
+	// NVICEnableInterrupt(37);
+	unsigned int *reg = (unsigned int *)(NVIC + 0x4); // Register NVIC_ISER1
 	*reg |= (1 << 5);
 
 	// Set Tx pin as output alternate function push-pull
@@ -75,7 +88,7 @@ void USARTInit(unsigned int baud_rate){
 	*reg |= (1 << 14);
 
 	// Set baud rate
-	USARTSetBaud(72000000, 9600); // Set BRR register (baud rate)
+	USARTSetBaud(); // Set BRR register (baud rate)
 
 	// Set the usart control register (Enable peripheral and interrupts)
 	reg = (unsigned int *)USART_ADDR_CR1;
@@ -123,47 +136,6 @@ void USARTInterrupt(void){
 	}
 }
 
-void CheckUsartInterrupt(){
-	if(usart_interrupt_ready == true){
-		// volatile unsigned int *reg = (unsigned int *)USART_ADDR_SR;
-		// USART_SR_data.data = *reg;
-
-		// if(USART_SR_data.SR.TC == 1){
-		// 	// Send data to buffer byte
-		// 	// reg = (unsigned int *)USART_ADDR_DR;
-		// 	// char tmp = (char)*reg;
-		// 	// *reg = tmp;
-		// 	// if(usart_buffer_tx_tail != usart_buffer_tx_head){
-		// 	// 	reg = (unsigned int *)USART_ADDR_DR;
-		// 	// 	*reg = USART1_buffer_tx[usart_buffer_tx_tail++];
-		// 	// 	if(usart_buffer_tx_tail == 256){
-		// 	// 		usart_buffer_tx_tail = 0;
-		// 	// 	}
-		// 	// }
-
-		// }else if(USART_SR_data.SR.RXNE == 1){
-		// 	// Read data from buffer byte
-		// 	reg = (unsigned int *)USART_ADDR_DR;
-		// 	char tmp = (char)*reg;
-		// 	*reg = tmp;
-
-		// }
-		// *reg = 0;
-
-		usart_interrupt_ready = false;
-	}
-}
-
-void USARTSetBaud(){
-    // unsigned short mantissa = current_clock_speed / (baud * 16);
-    // unsigned short fraction = (((((long long)current_clock_speed * 100) / (baud * 16)) - (mantissa * 100)) * 16) / 100;
-	unsigned short mantissa = MANTISSA;
-	unsigned short fraction = FRACTION;
-
-	unsigned int *reg = (unsigned int *)USART_ADDR_BRR;
-    *reg = fraction | (mantissa << 4);
-}
-
 void USARTWriteByte(uint8_t byte){
 	unsigned int *reg = (unsigned int *)USART_ADDR_SR;
 
@@ -199,6 +171,11 @@ void USARTWrite(const char *str){
 }
 
 void USARTWriteInt(uint32_t num){
+	if(num == 0){
+		USARTWriteByte('0');
+		return;
+	}
+
 	uint8_t num_digits = 0;
 	char digits[10] = {0};
 	while(num > 0){

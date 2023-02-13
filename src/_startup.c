@@ -2,6 +2,8 @@
 #include "gpio.h"
 #include "usart.h"
 #include "timer.h"
+#include "rtc.h"
+#include "adc.h"
 
 #define STACK_TOP 0x20005000
 void startup(void);
@@ -29,7 +31,7 @@ uint32_t *VectorTable[] __attribute__((section("vector_table"))) = {
 	/* 0  */ (uint32_t *) default_handler,		// WWDG (Window watchdog interrupt)
 	/* 1  */ (uint32_t *) default_handler,		// PVD (PVD through EXTI line detection interrupt)
 	/* 2  */ (uint32_t *) default_handler,		// Tamper interrupt
-	/* 3  */ (uint32_t *) default_handler,		// RTC global interrupt
+	/* 3  */ (uint32_t *) RTCInterrupt,			// RTC global interrupt
 	/* 4  */ (uint32_t *) default_handler,		// Flash global interrupt
 	/* 5  */ (uint32_t *) default_handler,		// RCC global interrupt
 	/* 6  */ (uint32_t *) default_handler,		// EXTI0 (EXTI Line0 interrupt)
@@ -142,38 +144,83 @@ void SetClock_72MHz(){
 void startup(void){
 
 /* --- CHANGE CLOCK SPEED --- */
-	SetClock_72MHz();
+	// SetClock_72MHz();
 
 /* --- Enable GPIO ports --- */
 	GPIOEnable(GPIO_PORT_A);
 	GPIOEnable(GPIO_PORT_C);
 
 /* --- SETUP TIMER 1 --- */
-	TimerInit();
+	// TimerInit();
 
 /* --- SETUP PC13 (LED) --- */
 	GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
 
 /* --- ENABLE USART 1 --- */
-	USARTInit(9600);
-	GPIOWrite(GPIO_PORT_C, 13, LOW);
+	USARTInit();
+	USARTWrite("USART Initialized!\n");
+	// GPIOWrite(GPIO_PORT_C, 13, LOW); // Turn the onboard LED on (low is on)
+	// GPIOWrite(GPIO_PORT_C, 13, HIGH); // Turn the onboard LED OFF
 
 /* --- SETUP USB --- */
 
-	// Send an 'a' char
-	USARTWriteByte('a');
-	unsigned int *reg = 0;
-	unsigned int loop_counter = 0;
+/* --- SETUP ADC --- */
+	// GPIOSetPinMode(GPIO_PORT_A, 0, GPIO_MODE_INPUT, 0); // Analog mode
+	// USARTWrite("Enabling ADC\n");
+	// ADCInit();
+
+/* --- SETUP RTC --- */
+	InitRTC();
+
+	// unsigned int *reg = 0;
+	// unsigned int loop_counter = 0;
+	unsigned int previous_time = RTCGetTime();
 	while(1){
 
-		if(USARTReadByte() == 'f'){
-			USARTWrite("bar!\n");
+
+		// reg = (unsigned int *)ADC1_SR;
+		// if(((*reg >> 1) & 1) == 1 && loop_counter % 256 == 0){
+			// Print the data register to UART and start another conversion
+			// reg = (unsigned int *)ADC1_DR;
+			// USARTWriteInt(*reg & 0xffff);
+			// USARTWriteInt((*reg << 16) >> 16);
+			// USARTWriteByte('\n');
+
+			// reg = (unsigned int *)ADC1_CR2;
+			// *reg |= 1 << 22; // SWSTART
+			// ADC adc; adc.data = *reg;
+			// adc.CR2.SWSTART = 1;
+			// *reg = adc.data;
+		// }
+		if(RTCGetTime() != previous_time){
+			USARTWriteInt(previous_time = RTCGetTime());
+			USARTWriteByte('\n');
+			// if(previous_time == 30){
+			// 	USARTWrite("TIME!\n");
+			// }
+		}
+
+
+
+		// if(USARTReadByte() == 'f'){
+		// 	USARTWrite("bar!\n");
+		// }
+		switch(USARTReadByte()){
+			case 't': // Print out the current RTC counter
+				USARTWriteInt(RTCGetTime());
+				USARTWriteByte('\n');
+				break;
+			case 'r': // Reset the RTC counter
+				RTCSetCounter(0);
+				break;
+			default:
+				break;
 		}
 
 		// Fade led in and out using pwm and a sine function
-		reg = (unsigned int *)TIMER1_ADDR_CCR1;
-		*reg = (custom_sin((loop_counter / 500)) + 32767) / 512;
-		loop_counter++;
+		// reg = (unsigned int *)TIMER1_ADDR_CCR1;
+		// *reg = (custom_sin((loop_counter / 500)) + 32767) / 512;
+		// loop_counter++;
 
 	}
 	

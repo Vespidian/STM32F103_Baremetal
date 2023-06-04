@@ -4,218 +4,239 @@
 #include "timer.h"
 #include "usart.h" // TMP
 
-typedef union Timer1{
-	uint32_t data;
+#define TIMER1_ADDR	0x40012C00
+#define TIMER2_ADDR 0x40000000
+#define TIMER3_ADDR 0x40000400
+#define TIMER4_ADDR 0x40000800
+#define TIMER5_ADDR 0x40000c00
 
-	// Control regster 1
-	struct CR1{
-		uint32_t CEN		: 1;	// Counter enable
-		uint32_t UDIS		: 1;	// Update disable
-		uint32_t URS		: 1;	// Update request source
-		uint32_t OPM		: 1;	// One-pulse mode
-		uint32_t DIR		: 1;	// Count Direction
-		uint32_t CMS		: 2;	// Center-aligned mode selection
-		uint32_t ARPE		: 1;	// Auto-reload preload enable
-		uint32_t CKD		: 2;	// Clock division
-		uint32_t 			: 6;	// .
-	}CR1;
+Timer *timer1 = (Timer *)TIMER1_ADDR;
+Timer *timer2 = (Timer *)TIMER2_ADDR;
+Timer *timer3 = (Timer *)TIMER3_ADDR;
+Timer *timer4 = (Timer *)TIMER4_ADDR;
+Timer *timer5 = (Timer *)TIMER5_ADDR;
 
-	// DMA / Interrupt enable register
-	struct DIER{
-		uint32_t UIE		: 1; // Update interrupt enable
-		uint32_t CC1IE		: 1; // Capture / compare interrupt enable
-		uint32_t CC2IE		: 1; // Capture / compare interrupt enable
-		uint32_t CC3IE		: 1; // Capture / compare interrupt enable
-		uint32_t CC4IE		: 1; // Capture / compare interrupt enable
-		uint32_t COMIE		: 1; // COM interrupt enable
-		uint32_t TIE		: 1; // Trigger interrupt enable
-		uint32_t BIE		: 1; // Break interrupt enable
+// typedef enum TIM_TYPE{
+// 	// Advanced control timers
+// 	TIM1 	= 1 >> 0,
+// 	TIM8 	= 1 >> 0,
 
-		uint32_t UDE		: 1; // Update DMA request enable
-		uint32_t CC1DE		: 1; // Capture / compare DMA request enable
-		uint32_t CC2DE		: 1; // Capture / compare DMA request enable
-		uint32_t CC3DE		: 1; // Capture / compare DMA request enable
-		uint32_t CC4DE		: 1; // Capture / compare DMA request enable
-		uint32_t COMDE		: 1; // COM DMA request enable
-		uint32_t TDE		: 1; // Trigger DMA request enable
-		uint32_t 			: 1; // .
-	}DIER;
+// 	// General purpose timers (4 channels)
+// 	TIM2 	= 1 >> 1,
+// 	TIM3 	= 1 >> 1,
+// 	TIM4 	= 1 >> 1,
+// 	TIM5 	= 1 >> 1,
 
-	// Status register
-	struct SR{
-		uint32_t UIF		: 1;	// Update interrupt flag
-		uint32_t CC1IF		: 1;	// Capture / compare 1 interrupt flag
-		uint32_t CC2IF		: 1;	// Capture / compare 2 interrupt flag
-		uint32_t CC3IF		: 1;	// Capture / compare 3 interrupt flag
-		uint32_t CC4IF		: 1;	// Capture / compare 4 interrupt flag
-		uint32_t 			: 1;	// .
-		uint32_t TIF		: 1;	// Trigger interrupt flag
-		uint32_t 			: 2;	// .
-		uint32_t CC1OF		: 1;	// Capture / compare 1 overcapture flag
-		uint32_t CC2OF		: 1;	// Capture / compare 2 overcapture flag
-		uint32_t CC3OF		: 1;	// Capture / compare 3 overcapture flag
-		uint32_t CC4OF		: 1;	// Capture / compare 4 overcapture flag
-		uint32_t 			: 3;	// .
-	}SR;
-
-	// Event generation register
-	struct EGR{
-		uint32_t UG			: 1;	// Update generation
-		uint32_t CC1G		: 1;	// Capture / compare 1 generation
-		uint32_t CC2G		: 1;	// Capture / compare 2 generation
-		uint32_t CC3G		: 1;	// Capture / compare 3 generation
-		uint32_t CC4G		: 1;	// Capture / compare 4 generation
-		uint32_t 			: 1;	// .
-		uint32_t TG			: 1;	// Trigger generation
-		uint32_t 			: 9;	// .
-	}EGR;
-
-	// Capture / compare mode register
-	struct CCMR_OUTPUT_COMPARE{
-		uint32_t CC1S		: 2;	// Capture / compare 1 selection
-		uint32_t OC1FE		: 1;	// Fast enable
-		uint32_t OC1PE		: 1;	// Preload enable
-		uint32_t OC1M		: 3;	// Output compare mode
-		uint32_t OC1CE		: 1;	// Clear enable
-
-		uint32_t CC2S		: 2;	// Capture / compare 1 selection
-		uint32_t OC2FE		: 1;	// Fast enable
-		uint32_t OC2PE		: 1;	// Preload enable
-		uint32_t OC2M		: 3;	// Output compare mode
-		uint32_t OC2CE		: 1;	// Clear enable
-	}CCMR_OUTPUT_COMPARE;
-	struct CCMR_INPUT_CAPTURE{
-		uint32_t CC1S		: 2;	// Capture / compare 1 selection
-		uint32_t IC1PSC		: 2;	// Capture prescaler
-		uint32_t IC1F		: 4;	// Capture filter
-
-		uint32_t CC2S		: 2;	// Capture / compare 1 selection
-		uint32_t IC2PSC		: 2;	// Capture prescaler
-		uint32_t IC2F		: 4;	// Capture filter
-	}CCMR_INPUT_CAPTURE;
-
-	struct CCER{
-		uint32_t CC1E		: 1;	// 
-		uint32_t CC1P		: 1;	// 
-		uint32_t CC1NE		: 1;	// 
-		uint32_t CC1NP		: 1;	// 
-	}CCER;
-
-	uint16_t CNT;	// Timer counter value
-	uint16_t ARR;	// Value to be loaded into the actual auto-reload register
-	uint16_t CCR;	/* When CC is configered as:
-						Output: Value to be compared to CNT register
-						Input: Value most recently captured (read only)
-					*/
-
-	struct BDTR{
-		uint32_t DTG		: 8;	// Dead-time generator setup
-		uint32_t LOCK		: 2;	// Lock configuration
-		uint32_t OSSI		: 1;	// Off-state selection for Idle mode
-		uint32_t OSSR		: 1;	// Off-state selection for Run mode
-		uint32_t BKE		: 1;	// Break enable
-		uint32_t BKP		: 1;	// Break polarity
-		uint32_t AOE		: 1;	// Automatic output enable
-		uint32_t MOE		: 1;	// Main output enable
-	}BDTR;
+// 	// General purpose timers (2 channels)
+// 	TIM9 	= 1 >> 2,
+// 	TIM12 	= 1 >> 2,
 	
+// 	// General purpose timers (2 channels)
+// 	TIM10 	= 1 >> 3,
+// 	TIM11 	= 1 >> 3,
+// 	TIM13 	= 1 >> 3,
+// 	TIM14 	= 1 >> 3,
 
-}Timer1;
+// 	// Basic timers
+// 	TIM6 	= 1 >> 4,
+// 	TIM7 	= 1 >> 4,
+// }TIM_TYPE;
+
+typedef enum TIM_ADDR{
+	TIM1 = 0x40012C00, // T1
+	TIM2 = 0x40000000, // T2
+	TIM3 = 0x40000400, // T3
+	TIM4 = 0x40000800, // T4
+	TIM5 = 0x40000c00, // T5
+	TIM6 = 0x40001000, // T6
+	TIM7 = 0x40001400, // T7
+	TIM8 = 0x40013400, // T8
+	TIM9 = 0x40014C00, // T9
+	TIM10 = 0x40015000, // T10
+	TIM11 = 0x40015400, // T11
+	TIM12 = 0x40001800, // T12
+	TIM13 = 0x40001C00, // T13
+	TIM14 = 0x40002000, // T14
+}TIM_ADDR;
+
+// static const uint32_t timer_addresses[14] = {
+// 	0x40012C00, // T1
+// 	0x40000000, // T2
+// 	0x40000400, // T3
+// 	0x40000800, // T4
+// 	0x40000c00, // T5
+// 	0x40001000, // T6
+// 	0x40001400, // T7
+// 	0x40013400, // T8
+// 	0x40014C00, // T9
+// 	0x40015000, // T10
+// 	0x40015400, // T11
+// 	0x40001800, // T12
+// 	0x40001C00, // T13
+// 	0x40002000, // T14
+// };
+
+// static const uint8_t timer_types[14] = {
+// 	1 << 0, // T1
+// 	1 << 1, // T2
+// 	1 << 1, // T3
+// 	1 << 1, // T4
+// 	1 << 1, // T5
+// 	1 << 4, // T6
+// 	1 << 4, // T7
+// 	1 << 0, // T8
+// 	1 << 2, // T9
+// 	1 << 3, // T10
+// 	1 << 3, // T11
+// 	1 << 2, // T12
+// 	1 << 3, // T13
+// 	1 << 3, // T14
+// };
+
+// static uint8_t TimerGetType(Timer *t){
+// 	uint8_t type = 0;
+// 	for(int i = 0; i < 14; i++){
+// 		if(t == timer_addresses[i]){
+// 			type = timer_types[i];
+// 			break;
+// 		}
+// 	}
+// 	return type;
+// }
+
+// void TimerSetMode(Timer t, ){}
+
+void TimerSetEnable(Timer *t, bool state){
+	switch((uint32_t)&t){
+		case TIM1:
+			rcc->APB2ENR.TIM1EN = state;
+			break;
+		case TIM2:
+			rcc->APB1ENR.TIM2EN = state;
+			break;
+		case TIM3:
+			rcc->APB1ENR.TIM3EN = state;
+			break;
+		case TIM4:
+			rcc->APB1ENR.TIM4EN = state;
+			break;
+		case TIM5:
+			rcc->APB1ENR.TIM5EN = state;
+			break;
+		case TIM6:
+			rcc->APB1ENR.TIM6EN = state;
+			break;
+		case TIM7:
+			rcc->APB1ENR.TIM7EN = state;
+			break;
+		case TIM8:
+			rcc->APB2ENR.TIM8EN = state;
+			break;
+		case TIM9:
+			rcc->APB2ENR.TIM9EN = state;
+			break;
+		case TIM10:
+			rcc->APB2ENR.TIM10EN = state;
+			break;
+		case TIM11:
+			rcc->APB2ENR.TIM11EN = state;
+			break;
+		case TIM12:
+			rcc->APB1ENR.TIM12EN = state;
+			break;
+		case TIM13:
+			rcc->APB1ENR.TIM13EN = state;
+			break;
+		case TIM14:
+			rcc->APB1ENR.TIM14EN = state;
+			break;
+	}
+}
+
+void TimerPause(Timer *t){
+	t->CR1.CEN = 0;
+}
+void TimerStart(Timer *t){
+	t->CR1.CEN = 1;
+}
+
+inline void TimerSetCounter(Timer *t, uint16_t value){
+	t->CNT = value;
+}
+inline uint16_t TimerGetCounter(Timer *t){
+	return t->CNT;
+}
+
+inline void TimerSetPrescaler(Timer *t, uint16_t value){
+	t->PSC = value;
+}
+inline uint16_t TimerGetPrescaler(Timer *t){
+	return t->PSC;
+}
+
+inline void TimerSetReload(Timer *t, uint16_t value){
+	t->ARR = value;
+}
+inline uint16_t TimerGetReload(Timer *t){
+	return t->ARR;
+}
 
 void TimerInit(){
 	// Set the PWM output pin
 	GPIOSetPinMode(GPIO_PORT_A, 8, GPIO_MODE_OUTPUT_2MHZ, GPIO_CONFIG_OUTPUT_AF_PUSHPULL); 
-	// GPIOSetPinMode(GPIO_PORT_A, 12, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSHPULL); 
 
-	Timer1 tim;
-	volatile unsigned int *reg = 0;
-
-	// Enable the usart interrupt in the NVIC
-	// NVICEnableInterrupt(27);
-	// reg = (unsigned int *)(NVIC); // Register NVIC_ISER1
-	// *reg |= (1 << 27);
+	// Enable the tim1 interrupt in the NVIC
+	NVICEnableInterrupt(27);
 
 	// Disable the timer
-	reg = (unsigned int *)TIMER1_ADDR_CR1;
-	tim.data = *reg;
-		tim.CR1.CEN = 0;
-	*reg = tim.data;
-
+	timer1->CR1.CEN = 0;
 	// Enable the TIM1 peripheral
-	reg = (unsigned int *)RCC_APB2ENR;
-	*reg |= (1 << 11); // Set TIM1EN
-	*reg |= 1; // Set AFIOEN
+	rcc->APB2ENR.TIM1EN = 1;
+	rcc->APB2ENR.AFIOEN = 1; // Enables the clock to control GPIO pins (should go in 'TimerSetMode')
 
-	reg = (unsigned int *)TIMER1_ADDR_CCER;
-	tim.data = *reg;
-		tim.CCER.CC1E = 1;
-	*reg = tim.data;
+	// Enable channel 1
+	timer1->CCER.CC1E = 1;
 
 	// Set timer to output compare mode and pwm mode 1
-	reg = (unsigned int *)(TIMER1_ADDR_CCMR1);
-	tim.data = *reg;
-		tim.CCMR_OUTPUT_COMPARE.CC1S = 0; 	// Output compare mode
-		tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_PWM_1;
-		// tim.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_TOGGLE;
-		tim.CCMR_OUTPUT_COMPARE.OC1PE = 1; 	// Enable preload
-	*reg = tim.data;
+	timer1->CCMR1.OUTPUT_COMPARE.CC1S = 0; 	// Output compare mode
+	timer1->CCMR1.OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_PWM_1;
+	timer1->CCMR1.OUTPUT_COMPARE.OC1PE = 1; 	// Enable preload
+	// timer1.CCMR_OUTPUT_COMPARE.OC1M = TIMER_OC_MODE_TOGGLE;
 
 	// Enable auto reload preload
-	reg = (unsigned int *)(TIMER1_ADDR_CR1);
-	tim.data = *reg;
-		tim.CR1.ARPE = 1;
-	*reg = tim.data;
+	timer1->CR1.ARPE = 1;
 
 	// Enable output compare ch1 interrupt
-	reg = (unsigned int *)(TIMER1_ADDR_DIER);
-	tim.data = *reg;
-		tim.DIER.CC1IE = 1;
-	*reg = tim.data;
+	timer1->DIER.CC1IE = 1;
 
 	// Enable update generation
-	reg = (unsigned int *)(TIMER1_ADDR_EGR);
-	tim.data = *reg;
-		tim.EGR.UG = 1;
-		tim.EGR.CC1G = 1;
-	*reg = tim.data;
+	timer1->EGR.UG = 1;
+	timer1->EGR.CC1G = 1;
 
-	// Enable main output (Only for OC mode)
-	reg = (unsigned int *)(TIMER1_ADDR_BDTR);
-	tim.data = *reg;
-		tim.BDTR.MOE = 1;
-	*reg = tim.data;
+	// Enable main output (Only for OC mode) (should be set in 'TimerSetMode')
+	timer1->BDTR.MOE = 1;
 
 	// Set the timer's prescaler
-	reg = (unsigned int *)TIMER1_ADDR_PSC;
-	*reg = 32;
+	timer1->PSC = 32;
 
 	// Set the timer's reset value
-	reg = (unsigned int *)TIMER1_ADDR_ARR;
-	*reg = 128;
+	timer1->ARR = 128;
 
 	// Set the PWM duty cycle
-	reg = (unsigned int *)TIMER1_ADDR_CCR1;
-	*reg = 1;
+	timer1->CCR1 = 1;
 
 	// Enable the timer
-	reg = (unsigned int *)TIMER1_ADDR_CR1;
-	tim.data = *reg;
-		tim.CR1.CEN = 1;
-	*reg = tim.data;
+	timer1->CR1.CEN = 1;
 }
 
 void Tim1Ch1_IRQ(){
-	unsigned int *reg = (unsigned int *)(TIMER1_ADDR_SR);
-	Timer1 tim;
-	tim.data = *reg;
 
-	// if(tim.SR.CC1IF == 1){
+	// if(timer1.SR.CC1IF == 1){
 	// 	GPIOWrite(GPIO_PORT_C, 13, led_state);
 	// 	led_state = !led_state;
 	// }
 
-	tim.SR.CC1IF = 0;
-	*reg = tim.data;
+	// timer1->SR.CC1IF = 0;
 }
 
 // (unsigned int *)TIMER1_ADDR_CNT

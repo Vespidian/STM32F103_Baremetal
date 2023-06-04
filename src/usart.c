@@ -6,14 +6,18 @@
 #define MANTISSA FREQUENCY / (BAUD * 16)
 #define FRACTION (((((long long)FREQUENCY * 100) / (BAUD * 16)) - (MANTISSA * 100)) * 16) / 100
 
+#define USART_ADDR			0x40013800
+
 #define USART_ADDR_SR		0x40013800
 #define USART_ADDR_DR		0x40013804
 #define USART_ADDR_BRR		0x40013808
 #define USART_ADDR_CR1		0x4001380c
+#define USART_ADDR_CR2		0x40013810
 
-typedef union USART{
-	uint32_t data;
-	struct SR{ // State flags register
+typedef struct USART{
+
+	// Status register
+	struct SR{
 		uint32_t PE 		: 1;	// Parity error
 		uint32_t FE 		: 1;	// Framing error
 		uint32_t NE 		: 1;	// Noise error flag
@@ -24,8 +28,19 @@ typedef union USART{
 		uint32_t TXE 		: 1;	// Transmit data register empty
 		uint32_t LBD 		: 1;	// LIN break detection flag
 		uint32_t CTS 		: 1;	// CTS flag
+		uint32_t 			: 22;	// .
 	}SR;
-	struct CR1{ // Settings 1 register
+
+	uint32_t DR;	// Data register
+
+	struct{
+		uint32_t DIV_Fraction 	: 4;	// 
+		uint32_t DIV_Mantissa 	: 12;	// 
+		uint32_t				: 16;	// .
+	}BRR;
+
+	// Configuration register 1
+	struct CR1{
 		uint32_t SBK 		: 1;	// Send break
 		uint32_t RWU 		: 1;	// Receiver wakeup
 		uint32_t RE 		: 1;	// Receiver enable
@@ -40,14 +55,39 @@ typedef union USART{
 		uint32_t WAKE 		: 1;	// Wakeup method
 		uint32_t M 			: 1;	// World length
 		uint32_t UE 		: 1;	// USART enable
+		uint32_t			: 18;	// .
 	}CR1;
+
+	// Configuration register 2
+	struct CR2{
+		uint32_t ADD		: 4;	// Address of the USART node
+		uint32_t 			: 1;	// .
+		uint32_t LBDL		: 1;	// LIN break detection length
+		uint32_t LBDIE		: 1;	// LIN break detection interrupt enable
+		uint32_t 			: 1;	// .
+		uint32_t LBCL		: 1;	// Last bit clock pulse
+		uint32_t CPHA		: 1;	// Clock phase
+		uint32_t CPOL		: 1;	// Clock polarity
+		uint32_t CLKEN		: 1;	// Clock enable
+		uint32_t STOP		: 2;	// STOP bits
+		uint32_t LINEN		: 1;	// LIN mode enable
+		uint32_t 			: 17;	// .
+	}CR2;
 }USART;
+
+USART *usart1 = (USART *)USART_ADDR;
+
+typedef struct USARTBuffer{
+	char buffer[256];
+	uint8_t head;
+	uint8_t tail;	
+}USARTBuffer;
 
 char USART1_buffer_tx[256];
 uint8_t usart_buffer_tx_head = 0;
 uint8_t usart_buffer_tx_tail = 0;
 
-#define USART1_RX_BUFFER_SIZE 256
+#define USART1_BUFFER_SIZE 256
 char USART1_buffer_rx[256];
 uint8_t usart_buffer_rx_head = 0;
 uint8_t usart_buffer_rx_tail = 0;
@@ -58,24 +98,16 @@ bool usart_interrupt_ready = false;
 void USARTSetBaud(){
     // unsigned short mantissa = current_clock_speed / (baud * 16);
     // unsigned short fraction = (((((long long)current_clock_speed * 100) / (baud * 16)) - (mantissa * 100)) * 16) / 100;
-	unsigned short mantissa = MANTISSA;
-	unsigned short fraction = FRACTION;
+	
+	usart1->BRR.DIV_Fraction = FRACTION;
+	usart1->BRR.DIV_Mantissa = MANTISSA;
 
-	unsigned int *reg = (unsigned int *)USART_ADDR_BRR;
-    *reg = fraction | (mantissa << 4);
 }
 
 void USARTInit(){
-	// GCC doesnt 0 initialize variables properly so I do it here
-	usart_buffer_tx_head = 0;
-	usart_buffer_tx_tail = 0;
-	usart_buffer_rx_head = 0;
-	usart_buffer_rx_tail = 0;
-
+	
 	// Enable the usart interrupt in the NVIC
-	// NVICEnableInterrupt(37);
-	unsigned int *reg = (unsigned int *)(NVIC + 0x4); // Register NVIC_ISER1
-	*reg |= (1 << 5);
+	NVICEnableInterrupt(37);
 
 	// Set Tx pin as output alternate function push-pull
 	GPIOSetPinMode(GPIO_PORT_A, 9, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_AF_PUSHPULL);
@@ -84,95 +116,71 @@ void USARTInit(){
 	GPIOSetPinMode(GPIO_PORT_A, 10, GPIO_MODE_INPUT, GPIO_CONFIG_INPUT_FLOATING);
 
 	// Enable USART clock
-	reg = (unsigned int *)RCC_APB2ENR;
-	*reg |= (1 << 14);
+	rcc->APB2ENR.USART1EN = 1;
 
 	// Set baud rate
 	USARTSetBaud(); // Set BRR register (baud rate)
 
 	// Set the usart control register (Enable peripheral and interrupts)
-	reg = (unsigned int *)USART_ADDR_CR1;
-	USART CR1_reg;
-	CR1_reg.data = *reg;	
-	CR1_reg.CR1.UE = true;
-	CR1_reg.CR1.TE = true;
-	CR1_reg.CR1.RE = true;
-	CR1_reg.CR1.RXNEIE = true;
-	CR1_reg.CR1.TCIE = true;
-	*reg = CR1_reg.data;
+	usart1->CR1.UE = true;
+	usart1->CR1.TE = true;
+	usart1->CR1.RE = true;
+	usart1->CR1.RXNEIE = true;
+	usart1->CR1.TCIE = true;
 }
 
 void USARTInterrupt(void){
-	// usart_interrupt_ready = true;
 
+	usart1->DR &= 0b0010000000;
 
-	// unsigned int *reg = (unsigned int *)(0xE000E280 + 0x4); // Register NVIC_ISER1 (Clear pending register)
-	// *reg |= (1 << 5);
+	if(usart1->SR.RXNE == 1){
+		USART1_buffer_rx[usart_buffer_rx_head++] = (char)usart1->DR;
+		// if(usart_buffer_rx_head == USART1_BUFFER_SIZE){
+		// 	usart_buffer_rx_head = 0;
+		// }
 
-
-	// GPIOWrite(GPIO_PORT_C, 13, led_state);
-	// led_state = !led_state;
-
-
-	volatile unsigned int *reg = (unsigned int *)USART_ADDR_SR;
-	USART_SR_data.data = *reg;
-	*reg &= 0b0010000000;
-
-
-	reg = (unsigned int *)USART_ADDR_DR;
-	if(USART_SR_data.SR.RXNE == 1){
-		USART1_buffer_rx[usart_buffer_rx_head++] = (char)*reg;
-		if(usart_buffer_rx_head == USART1_RX_BUFFER_SIZE){
-			usart_buffer_rx_head = 0;
-		}
-
-	}else if(USART_SR_data.SR.TC == 1){
+	}else if(usart1->SR.TC == 1){
 		if(usart_buffer_tx_tail != usart_buffer_tx_head){
-			*reg = USART1_buffer_tx[usart_buffer_tx_tail++];
-			if(usart_buffer_tx_tail == USART1_RX_BUFFER_SIZE){
-				usart_buffer_tx_tail = 0;
-			}
+			usart1->DR = USART1_buffer_tx[usart_buffer_tx_tail++];
+			// if(usart_buffer_tx_tail == USART1_BUFFER_SIZE){
+			// 	usart_buffer_tx_tail = 0;
+			// }
 		}
 	}
 }
 
 void USARTWriteByte(uint8_t byte){
-	unsigned int *reg = (unsigned int *)USART_ADDR_SR;
 
-	while(((*reg >> 7) & 1) == 0); // TXE (Wait for the transmit data register to be empty (1))
+	// TXE (Wait for the transmit data register to be empty (1))
+	while(usart1->SR.TXE == 0);
 
-	reg = (unsigned int *)USART_ADDR_DR;
-	*reg = byte; // Set the data register's data to 'byte'
+	// Set the data register's data to 'byte'
+	usart1->DR = byte;
+
+
+	/** -- OR -- **/
+	// USART1_buffer_tx[usart_buffer_tx_head++] = byte; // Doesnt work for some reason
 }
 
 void USARTWrite(const char *str){
 	if(str != NULL){
-		// Option 1: Put the string into the tx buffer and make the interrupt tx it all
+		// Put the string into the tx buffer and make the interrupt tx it all
 		// for(int i = 0; (str[i] != 0) && (usart_buffer_tx_head != usart_buffer_tx_tail); i++){
 		for(int i = 0; (str[i] != 0); i++){
 			USART1_buffer_tx[usart_buffer_tx_head++] = str[i];
-			if(usart_buffer_tx_head == USART1_RX_BUFFER_SIZE){
-				usart_buffer_tx_head = 0;
-			}
+			// if(usart_buffer_tx_tail == USART1_BUFFER_SIZE){
+			// 	usart_buffer_tx_tail = 0;
+			// }
 		}
 		// Now tx the 1st character to allow the ISR to do the rest
 		// USARTWriteByte(str[0]);
-
-		// Option 2: Send all the characters from within this function
-		// volatile unsigned int *reg = (unsigned int *)USART_ADDR_SR;
-		// for(int i = 0; (str[i] != 0); i++){
-		// 	reg = (unsigned int *)USART_ADDR_SR;
-		// 	while(((*reg >> 7) & 1) == 0); // TXE (Wait for the transmit data register to be empty (1))
-			
-		// 	reg = (unsigned int *)USART_ADDR_DR;
-		// 	*reg = str[i];
-		// }
 	}
 }
 
 void USARTWriteInt(uint32_t num){
 	if(num == 0){
-		USARTWriteByte('0');
+		// USARTWriteByte('0');
+		USARTWrite("0");
 		return;
 	}
 
@@ -184,17 +192,31 @@ void USARTWriteInt(uint32_t num){
 		num_digits++;
 	}
 
+	char str[11];
 	for(int i = 0; i < num_digits; i++){
-	    USARTWriteByte('0' + digits[num_digits - i - 1]);
+		str[i] = '0' + digits[num_digits - i - 1];
 	}
+	str[num_digits] = 0;
+	USARTWrite(str);
+}
+
+void USARTWriteHex(uint8_t num){
+	char str[4] = "0x00";
+
+	uint8_t val = (num >> 4);
+	str[2] = ((val > 9) ? (val + 'A' - 10) : (val + '0'));
+	
+	val = (num & 0x0f);
+	str[3] = ((val > 9) ? (val + 'A' - 10) : (val + '0'));
+
+	USARTWrite(str);
 }
 
 uint8_t USARTReadByte(){
 	uint8_t c = 0;
 	if(usart_buffer_rx_head != usart_buffer_rx_tail){
 		c = USART1_buffer_rx[usart_buffer_rx_tail++];
-		USARTWriteByte(c);
-		if(usart_buffer_rx_tail == USART1_RX_BUFFER_SIZE){
+		if(usart_buffer_rx_tail == USART1_BUFFER_SIZE){
 			usart_buffer_rx_tail = 0;
 		}
 	}

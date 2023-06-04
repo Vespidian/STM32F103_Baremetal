@@ -8,19 +8,41 @@ MEMORY{
 SECTIONS{
 	. = 0x0;
 
-	.text : {
+	/*	Vector table should be at the start of flash */
+	.vector_table : {
 		*(vector_table)
+	} > FLASH
+
+	/*	Contains the main program code */
+	.text : {
 		*(.text)
-	} >FLASH
+	} > FLASH
 
+	/*	Contains read-only data.
+		constants, strings, and other unchanging information */
+	.rodata : {
+		. = ALIGN(4);
+		*(.rodata)
+		*(.rodata*)
+		. = ALIGN(4);
+	} > FLASH
+
+	/*	Space set aside for variables and other changing information */
 	.data : {
+		. = ALIGN(4);
+		_data_s = .;
 		*(.data)
+		*(.data*)
+		_data_e = .;
 		. = ALIGN(4);
-	} >RAM AT >FLASH
+		_data_flash_addr = LOADADDR(.data);
+		
+	} > RAM AT > FLASH
 
+	/*	Similar to 'data' section except, it is initialized to all 0s */
 	.bss : {
-		. = ALIGN(4);
+		_bss_s = .;
 		*(.bss)
-		. = ALIGN(4);
-	} >RAM
+		_bss_e = .;
+	} > RAM
 }

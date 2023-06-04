@@ -4,6 +4,9 @@
 #include "timer.h"
 #include "rtc.h"
 #include "adc.h"
+#include "i2c.h"
+
+#include "terminal.h"
 
 #define STACK_TOP 0x20005000
 void startup(void);
@@ -76,6 +79,9 @@ uint32_t *VectorTable[] __attribute__((section("vector_table"))) = {
 	// TODO: Copy vector table to ram so we can modify interrupts inside of functions
 };
 
+RCC *rcc = (RCC *)RCC_ADDR;
+
+char *test_str = "lets see something";
 bool led_state = LOW;
 // bool is_running = true;
 
@@ -85,6 +91,41 @@ bool GetRegisterBit(uint32_t *reg, uint8_t bit){
 }
 
 void default_handler(void){}
+
+void *memcpy(void *dst, const void *src, size_t len){
+	// size_t i;
+
+	// // // If data is 32 bit aligned, copy a whole 32 bit chunk at once
+	// if ((uintptr_t)dst % sizeof(long) == 0 && (uintptr_t)src % sizeof(long) == 0 && len % sizeof(long) == 0) {
+	// 	long *d = dst;
+	// 	const long *s = src;
+
+	// 	for (i=0; i<len/sizeof(long); i++) {
+	// 			d[i] = s[i];
+	// 	}
+	// }else {
+		char *d = dst;
+		const char *s = src;
+
+	// 	for (i=0; i<len; i++) {
+	// 			d[i] = s[i];
+	// 	}
+	// }
+
+	for(size_t i = 0; i < len; i++){
+		d[i] = s[i];
+	}
+
+	return dst;
+}
+
+void *memset(void *dst, int value, size_t len){
+	char *d = dst;
+	for(size_t i = 0; i < len; i++){
+		d[i] = value;
+	}
+	return dst;
+}
 
 short custom_sin(unsigned char x){
 	static const short sin_lut[64] = {0, 804, 1607, 2410, 3211, 4011, 4807, 5601, 6392, 7179, 7961, 8739, 9511, 10278, 11038, 11792, 12539, 13278, 14009, 14732, 15446, 16150, 16845, 17530, 18204, 18867, 19519, 20159, 20787, 21402, 22004, 22594, 23169, 23731, 24278, 24811, 25329, 25831, 26318, 26789, 27244, 27683, 28105, 28510, 28897, 29268, 29621, 29955, 30272, 30571, 30851, 31113, 31356, 31580, 31785, 31970, 32137, 32284, 32412, 32520, 32609, 32678, 32727, 32767};
@@ -101,7 +142,6 @@ short custom_sin(unsigned char x){
 
 void SetClock_72MHz(){
 	unsigned int *reg = 0;
-	RCC clock_control;
 
 	// Set flash latency for higher clock speed
 	reg = (unsigned int *)FLASH_ACR;
@@ -111,37 +151,50 @@ void SetClock_72MHz(){
 	*reg = flash.data;
 
 	// Enable the HSE and wait for it to be stable (HSERDY), disable the PLL so we can modify it
-	reg = (unsigned int *)RCC_CR;
-	clock_control.data = *reg;
-		clock_control.CR.HSEON = 1;
-		clock_control.CR.PLLON = 0;
-		clock_control.CR.CSSON = 1;
-	*reg = clock_control.data;
-	while((((*reg) >> 17) & 1) == 0);
+	rcc->CR.HSEON = 1;
+	rcc->CR.PLLON = 0;
+	rcc->CR.CSSON = 1;
+	// while((((*reg) >> 17) & 1) == 0);
+	while(rcc->CR.HSERD == 0);
 
 	// Set PLL source and set PLL speed
-	reg = (unsigned int *)RCC_CFGR;
-	clock_control.data = *reg;
-		clock_control.CFGR.PLLSRC = 1; // Src set to HSE
-		clock_control.CFGR.PLLMUL = 0b0111; // Multiplier x9
-		clock_control.CFGR.PPRE1 = 0b100; // Set APB1 to 36MHz
-	*reg = clock_control.data;
+	rcc->CFGR.PLLSRC = 1; // Src set to HSE
+	rcc->CFGR.PLLMUL = 0b0111; // Multiplier x9
+	rcc->CFGR.PPRE1 = 0b100; // Set APB1 to 36MHz
 
 	// Enable PLL
-	reg = (unsigned int *)RCC_CR;
-	clock_control.data = *reg;
-		clock_control.CR.PLLON = 1;
-	*reg = clock_control.data;
-	while((((*reg) >> 25) & 1) == 0); // Wait for PLLRDY
+	rcc->CR.PLLON = 1;
+	// while((((*reg) >> 25) & 1) == 0); // Wait for PLLRDY
+	while(rcc->CR.PLLRDY == 0);
 
 	// Switch system clock to PLL
-	reg = (unsigned int *)RCC_CFGR;
-	clock_control.data = *reg;
-		clock_control.CFGR.SW = 0b10;
-	*reg = clock_control.data;
+	rcc->CFGR.SW = 0b10;
 }
 
+
+static void TurnOn(){
+	GPIOWrite(GPIO_PORT_A, 6, HIGH);
+
+
+	// Fade led in using pwm and a sine function
+	unsigned int *reg;
+	for(size_t i = 0; i < 1000000; i++){
+		reg = (unsigned int *)TIMER1_ADDR_CCR1;
+		*reg = (custom_sin(i / 7812 + 196) + 32767) / 512;
+	}
+}
+
+extern unsigned int _data_s;
+extern unsigned int _data_e;
+extern unsigned int _data_flash_addr;
+
+extern unsigned int _bss_s;
+extern unsigned int _bss_e;
+
 void startup(void){
+	// Copy .data section to memory and zero out .bss section
+	memcpy(&_data_s, &_data_flash_addr, sizeof(size_t) * (&_data_e - &_data_s));
+	memset(&_bss_s, 0, &_bss_e - &_bss_s);
 
 /* --- CHANGE CLOCK SPEED --- */
 	// SetClock_72MHz();
@@ -151,14 +204,19 @@ void startup(void){
 	GPIOEnable(GPIO_PORT_C);
 
 /* --- SETUP TIMER 1 --- */
-	// TimerInit();
+	TimerInit();
 
 /* --- SETUP PC13 (LED) --- */
 	GPIOSetPinMode(GPIO_PORT_C, 13, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
 
+	// Set up PA6 for led
+	GPIOSetPinMode(GPIO_PORT_A, 6, GPIO_MODE_OUTPUT_10MHZ, GPIO_CONFIG_OUTPUT_GP_PUSHPULL);
+	GPIOWrite(GPIO_PORT_A, 6, LOW);
+
+
 /* --- ENABLE USART 1 --- */
 	USARTInit();
-	USARTWrite("USART Initialized!\n");
+	// USARTWrite("USART Initialized!\n");
 	// GPIOWrite(GPIO_PORT_C, 13, LOW); // Turn the onboard LED on (low is on)
 	// GPIOWrite(GPIO_PORT_C, 13, HIGH); // Turn the onboard LED OFF
 
@@ -172,9 +230,22 @@ void startup(void){
 /* --- SETUP RTC --- */
 	InitRTC();
 
+	command_buffer_index = 0;
 	// unsigned int *reg = 0;
 	// unsigned int loop_counter = 0;
-	unsigned int previous_time = RTCGetTime();
+	// unsigned int previous_time = RTCGetTime();
+	
+	
+	I2CInit();
+	// for(int i = 0; i < 128; i++){
+	// // 	// if(I2CReadByte(i) == 1){
+	// 		// USARTWriteInt(I2CReadByte(0b01010101));
+	// 		I2CWriteByte(i, 'a');
+	// 		// USARTWrite("\n");
+	// // 	// }
+	// }
+
+
 	while(1){
 
 
@@ -192,12 +263,16 @@ void startup(void){
 			// adc.CR2.SWSTART = 1;
 			// *reg = adc.data;
 		// }
-		if(RTCGetTime() != previous_time){
-			USARTWriteInt(previous_time = RTCGetTime());
-			USARTWriteByte('\n');
-			// if(previous_time == 30){
-			// 	USARTWrite("TIME!\n");
-			// }
+		// if(RTCGetTime() == previous_time){
+		// 	USARTWriteInt(previous_time = RTCGetTime());
+		// 	USARTWriteByte('\n');
+		// 	// if(previous_time == 30){
+		// 	// 	USARTWrite("TIME!\n");
+		// 	// }
+		// }
+		if(alarm_flag){
+			TurnOn();
+			alarm_flag = false;
 		}
 
 
@@ -205,17 +280,9 @@ void startup(void){
 		// if(USARTReadByte() == 'f'){
 		// 	USARTWrite("bar!\n");
 		// }
-		switch(USARTReadByte()){
-			case 't': // Print out the current RTC counter
-				USARTWriteInt(RTCGetTime());
-				USARTWriteByte('\n');
-				break;
-			case 'r': // Reset the RTC counter
-				RTCSetCounter(0);
-				break;
-			default:
-				break;
-		}
+
+		Terminal();
+
 
 		// Fade led in and out using pwm and a sine function
 		// reg = (unsigned int *)TIMER1_ADDR_CCR1;

@@ -68,17 +68,11 @@ typedef union ADC{
 void ADCInit(){
 	// Enable ADC1 in the RCC
 	ADC adc;
-	RCC rcc;
-	unsigned int *reg = (unsigned int *)RCC_APB2ENR;
-	rcc.data = *reg;
-		rcc.APB2ENR.ADC1EN = 1;
-	*reg = rcc.data;
+	unsigned int *reg;
 
-	reg = (unsigned int *)RCC_CFGR;
-	rcc.data = *reg;
-		rcc.CFGR.PPRE2 = 0b110; // ADC clock can be max 14MHz (Set to divide by 8)
-		rcc.CFGR.ADCPRE = 0b010; // ADC clock can be max 14MHz (Set to divide by 6)
-	*reg = rcc.data;
+	rcc->APB2ENR.ADC1EN = 1;
+	rcc->CFGR.PPRE2 = 0b110; // ADC clock can be max 14MHz (Set to divide by 8)
+	rcc->CFGR.ADCPRE = 0b010; // ADC clock can be max 14MHz (Set to divide by 6)
 
 	USARTWrite("RCC enabled ADC\n");
 

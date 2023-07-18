@@ -1,7 +1,7 @@
 PREFIX = arm-none-eabi-
 CC = $(PREFIX)gcc
 
-CFLAGS = -c -MMD -O0 -mcpu=cortex-m3 -mthumb -Wall -Wno-unused-but-set-variable -g
+CFLAGS = -c -MMD -O0 -mcpu=cortex-m3 -mthumb -Wall -Wno-unused-but-set-variable -g3 -Wpadded
 
 C_SOURCES = $(wildcard *.c */*.c */*/*.c)
 OBJECT_FILES = $(C_SOURCES:.c=.o)

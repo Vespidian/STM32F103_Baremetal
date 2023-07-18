@@ -6,17 +6,14 @@
     "configurations": [
 
         {
-            "name": "Cortex Debug",
-            "cwd": "${workspaceFolder}",
-            "executable": "main.elf",
-            "request": "launch",
-            "type": "cortex-debug",
-            "runToEntryPoint": "main",
-            "servertype": "openocd",
-            "gdbPath": "gdb",
-            "configFiles": ["openocd.cfg", "stlink-v2.cfg"],
-            "device": "STM32F103C8T6",
-            "svdFile": "${workspaceFolder}/STM32F103.svd"
+            "type": "gdb",
+            "request": "attach",
+            "name": "Attach to gdbserver",
+            "executable": "bin/main.elf",
+            "target": "192.168.56.102:3333",
+            "remote": true,
+            "cwd": "${workspaceRoot}", 
+            "gdbpath": "gdb",
         }
     ]
 }

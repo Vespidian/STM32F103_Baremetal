@@ -1,67 +1,70 @@
-#include "main.h"
+#include "global.h"
+#include "stdlib.h"
+#include "rcc.h"
 #include "nvic.h"
+#include "stm32f103xb.h"
+
 #include "rtc.h"
 
-RTC *rtc = (RTC *)RTC_ADDR;
 
 void InitRTC(){
-	PWR *pwr = (PWR *)PWR_CR;
-	BKP *bkp = (BKP *)BKP_RTCCR;
+	// PWR *pwr = (PWR *)PWR_CR;
+	// BKP *bkp = (BKP *)BKP_RTCCR;
 
 	// Enable power and backup interfaces
-	rcc->APB1ENR.BKPEN = 1;
-	rcc->APB1ENR.PWREN = 1;
+	RCC->APB1ENR |= RCC_APB1ENR_BKPEN;
+	RCC->APB1ENR |= RCC_APB1ENR_PWREN;
 
 	// Disable backup register write protection
-	pwr->CR.DBP = 1;
+	PWR->CR = PWR_CR_DBP;
 
 	// Set RTC calibration value
-	bkp->RTCCR.CAL = 25; // Adjusted by 62 seconds per month
+	// bkp->RTCCR.CAL = 25; // Adjusted by 62 seconds per month
 
-	rcc->BDCR.LSEON = 1;
-	rcc->BDCR.RTCEN = 1;
-	rcc->BDCR.RTCSEL = 0b01; // LSE clock selected as RTC clock source
-	rcc->BDCR.BDRST = 1;
-	while(rcc->BDCR.LSERDY == 0); // Wait for LSE to be ready
+	RCC->BDCR |= RCC_BDCR_LSEON;
+	RCC->BDCR |= RCC_BDCR_RTCEN;
+	RCC->BDCR |= RCC_BDCR_RTCSEL_LSE; // LSE clock selected as RTC clock source
+	RCC->BDCR |= RCC_BDCR_RTCSEL;
+	while((RCC->BDCR & RCC_BDCR_LSERDY) == 0); // Wait for LSE to be ready
 
 	// Enter configuration mode
-	rtc->CRL.CNF = 1;
+	RTC->CRL |= RTC_CRL_CNF;
 
-	rtc->CRH.ALRIE = 1;
-	rtc->CRH.SECIE = 1;
+	RTC->CRH |= RTC_CRH_ALRIE;
+	RTC->CRH |= RTC_CRH_SECIE;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 
 
 	/* --- Set up RTC prescaler --- */
 	uint32_t prescaler = 32767;
 	
 	// Set RTC PRL high bits
-	rtc->PRLH = prescaler >> 16;
+	RTC->PRLH = prescaler >> 16;
 
 	// Set RTC PRL low bits
-	rtc->PRLL = prescaler & 0xffff;
+	RTC->PRLL = prescaler & 0xffff;
 
 
 	/* --- Initialize RTC Counter --- */
-	rtc->CNTH = 0x0000;
+	RTC->CNTH = 0x0000;
 
 	// Set RTC PRL low bits
-	rtc->CNTL = 0x0000;
+	RTC->CNTL = 0x0000;
 
 	/* --- Initialize Alarm --- */
-	rtc->ALRH = 0x0000;
+	RTC->ALRH = 0x0000;
 
 	// Set RTC ALR low bits
-	rtc->ALRL = 10;
+	RTC->ALRL = 10;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 
 
 	// Exit configuration mode and wait until the configuration write is done
-	rtc->CRL.CNF = 0;
+	RTC->CRL &= ~RTC_CRL_CNF;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 
 	// Enable the rtc interrupt in the NVIC
 	NVICEnableInterrupt(3);
@@ -71,8 +74,8 @@ void InitRTC(){
 unsigned int RTCGetTime(){
 	unsigned int time;
 
-	time = rtc->CNTH << 16;
-	time |= rtc->CNTH & 0xffff;
+	time = RTC->CNTH << 16;
+	time |= RTC->CNTL & 0xffff;
 
 	return time;
 }
@@ -80,63 +83,62 @@ unsigned int RTCGetTime(){
 void RTCSetCounter(uint32_t value){
 
 	// Enter configuration mode
-	rtc->CRL.CNF = 1;
+	RTC->CRL |= RTC_CRL_CNF;
 
 	/* --- Initialize RTC Counter --- */
-	rtc->CNTH = value >> 16;
+	RTC->CNTH = value >> 16;
 
 	// Set RTC PRL low bits
-	rtc->CNTL = value & 0xffff;
+	RTC->CNTL = value & 0xffff;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 
 	// Exit configuration mode and wait until the configuration write is done
-	rtc->CRL.CNF = 0;
+	RTC->CRL &= ~RTC_CRL_CNF;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 }
 
 void RTCSetAlarm(uint32_t value){
 
 	// Enter configuration mode
-	rtc->CRL.CNF = 1;
+	RTC->CRL |= RTC_CRL_CNF;
 
 	/* --- Initialize Alarm --- */
-	rtc->ALRH = value >> 16;
+	RTC->ALRH = value >> 16;
 
 	// Set RTC ALR low bits
-	rtc->ALRL = value & 0xffff;
+	RTC->ALRL = value & 0xffff;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 
 	// Exit configuration mode and wait until the configuration write is done
-	rtc->CRL.CNF = 0;
+	RTC->CRL &= ~RTC_CRL_CNF;
 
-	while(rtc->CRL.RTOFF == 0); // Wait for the RTC write operation to be completed
+	while((RTC->CRL & RTC_CRL_RTOFF) == 0); // Wait for the RTC write operation to be completed
 }
 
 unsigned int RTCGetAlarm(){
 	unsigned int alarm;
 
-	alarm = rtc->ALRH << 16;
-	alarm |= rtc->ALRL & 0xffff;
+	alarm = RTC->ALRH << 16;
+	alarm |= RTC->ALRL & 0xffff;
 
 	return alarm;
 }
 
 #include "usart.h"
-#include "gpio.h"
-bool led = false;
+// #include "gpio.h"
 bool alarm_flag = false;
 void RTCInterrupt(){
-	if(rtc->CRL.ALRF){
+	if(RTC->CRL & RTC_CRL_ALRF){
 		alarm_flag = true;
 		USARTWrite("Tick\n");
 	}
-	rtc->CRL.ALRF = 0;
-	rtc->CRL.SECF = 0;
-	rtc->CRL.OWF = 0;
+	RTC->CRL &= ~RTC_CRL_ALRF;
+	RTC->CRL &= ~RTC_CRL_SECF;
+	RTC->CRL &= ~RTC_CRL_OWF;
 
-	GPIOWrite(GPIO_PORT_C, 13, led);
-	led = !led;
+	// GPIOWrite(GPIO_PORT_C, 13, led);
+	// led = !led;
 }

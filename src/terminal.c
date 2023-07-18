@@ -1,4 +1,4 @@
-#include "main.h"
+#include "stdlib.h"
 #include "usart.h"
 
 #include "rtc.h"
@@ -11,6 +11,7 @@ uint8_t command_buffer_index;
 char previous_char;
 
 void FuncHelp(const char *command_buffer);
+void FuncBlinkTime(const char *command_buffer);
 void FuncTime(const char *command_buffer);
 void FuncAlarm(const char *command_buffer);
 void FuncPing(const char *command_buffer);
@@ -19,6 +20,7 @@ void FuncLed(const char *command_buffer);
 
 const char *command_list[] = {
 	"help",
+	"blinktime",
 	"time",
 	"alarm",
 	"ping",
@@ -28,6 +30,7 @@ const char *command_list[] = {
 
 CommandFunction function_list[] = {
 	FuncHelp,
+	FuncBlinkTime,
 	FuncTime,
 	FuncAlarm,
 	FuncPing,
@@ -183,6 +186,7 @@ void GetCommand(){
 	}
 }
 
+// #include "gpio.h"
 void Terminal(){
 	char c;
 	c = USARTReadByte();
@@ -196,6 +200,7 @@ void Terminal(){
 		case 0x7f: // Backspace 
 			if(command_buffer_index != 0){
 				command_buffer_index--;
+				USARTWrite("\x1b[D \x1b[D");
 			}
 			break;
 		case '\r': // Carriage return
@@ -223,6 +228,18 @@ void FuncHelp(const char *command_buffer){
 		USARTWrite(" ");
 	}
 	USARTWrite("\n");
+}
+
+#include "stm32f103xb.h"
+void FuncBlinkTime(const char *command_buffer){
+	if(StringCompare(command_buffer = (FindChar(command_buffer, ' ') + 1), "set", ' ')){
+		// Set
+		SysTick->LOAD = StrToInt(FindChar(command_buffer, ' ') + 1, ' ');
+	}else{
+		// Get
+		USARTWriteInt(SysTick->LOAD);
+		USARTWrite("\n");
+	}
 }
 
 void FuncTime(const char *command_buffer){
@@ -254,24 +271,24 @@ void FuncPing(const char *command_buffer){
 }
 
 #include "gpio.h"
-#include "timer.h"
+// #include "timer.h"
 void FuncLed(const char *command_buffer){
-	unsigned int *reg;
-	if(StringCompare((FindChar(command_buffer, ' ') + 1), "on", ' ')){
-		GPIOWrite(GPIO_PORT_A, 6, HIGH);
+	// unsigned int *reg;
+	// if(StringCompare((FindChar(command_buffer, ' ') + 1), "on", ' ')){
+	// 	GPIOWrite(GPIO_PORT_A, 6, HIGH);
 
-		// Fade led in and out using pwm and a sine function
-		for(size_t i = 0; i < 100000; i++){
-			reg = (unsigned int *)TIMER1_ADDR_CCR1;
-			*reg = (custom_sin(i / 781 + 196) + 32767) / 512;
-		}
-	}
-	if(StringCompare((FindChar(command_buffer, ' ') + 1), "off", ' ')){
-		GPIOWrite(GPIO_PORT_A, 6, LOW);
+	// 	// Fade led in and out using pwm and a sine function
+	// 	for(size_t i = 0; i < 100000; i++){
+	// 		reg = (unsigned int *)TIMER1_ADDR_CCR1;
+	// 		*reg = (custom_sin(i / 781 + 196) + 32767) / 512;
+	// 	}
+	// }
+	// if(StringCompare((FindChar(command_buffer, ' ') + 1), "off", ' ')){
+	// 	GPIOWrite(GPIO_PORT_A, 6, LOW);
 
-		for(size_t i = 0; i < 100000; i++){
-			reg = (unsigned int *)TIMER1_ADDR_CCR1;
-			*reg = (custom_sin(i / 781 + 64) + 32767) / 512;
-		}
-	}
+	// 	for(size_t i = 0; i < 100000; i++){
+	// 		reg = (unsigned int *)TIMER1_ADDR_CCR1;
+	// 		*reg = (custom_sin(i / 781 + 64) + 32767) / 512;
+	// 	}
+	// }
 }

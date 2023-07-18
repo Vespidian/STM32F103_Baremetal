@@ -1,4 +1,5 @@
-#include "main.h"
+#include "stdlib.h"
+#include "stm32f103xb.h"
 #include "gpio.h"
 
 
@@ -7,6 +8,12 @@
 // #define GPIOC_BSRR	 	0x40011010
 // #define GPIOC_BRR	 	0x40011014
 // #define GPIOC_LCKR	 	0x40011018
+
+// #define RCC_CR		 	0x40021000
+// #define RCC_CFGR	 	0x40021004
+#define RCC_APB2ENR 	0x40021018
+// #define RCC_APB1ENR 	0x4002101C
+// #define RCC_BDCR	 	0x40021020
 
 void GPIOEnable(GPIO_PORTS port){
 	unsigned int *reg = (unsigned int *)RCC_APB2ENR;

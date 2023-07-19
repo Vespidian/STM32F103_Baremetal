@@ -4,6 +4,7 @@
 #include "rtc.h"
 
 #include "usart.h"
+#include "usb.h"
 #include "terminal.h"
 #include "stm32f103xb.h"
 
@@ -50,8 +51,8 @@ uint32_t *VectorTable[] __attribute__((section("vector_table"))) = {
 	/* 16 */ (uint32_t *) default_handler,		// DMA1_Channel6
 	/* 17 */ (uint32_t *) default_handler,		// DMA1_Channel7
 	/* 18 */ (uint32_t *) default_handler,		// ADC1_2 (ADC 1 and 2 global interrupt)
-	/* 19 */ (uint32_t *) default_handler,		// USB_HP_CAN_TX (USB High Priority or CAN TX interrupts)
-	/* 20 */ (uint32_t *) default_handler,		// USB_LP_CAN_RX0 (USB Low Priority or CAN RX0 interrupts)
+	/* 19 */ (uint32_t *) USBInterrupt,			// USB_HP_CAN_TX (USB High Priority or CAN TX interrupts)
+	/* 20 */ (uint32_t *) USBInterrupt,			// USB_LP_CAN_RX0 (USB Low Priority or CAN RX0 interrupts)
 	/* 21 */ (uint32_t *) default_handler,		// CAN_RX1 (CAN RX1 interrupt)
 	/* 22 */ (uint32_t *) default_handler,		// CAN_SCE (CAN SCE interrupt)
 	/* 23 */ (uint32_t *) default_handler,		// EXTI9_5 (EXTI Line[9:5] interrupts)
@@ -73,7 +74,7 @@ uint32_t *VectorTable[] __attribute__((section("vector_table"))) = {
 	/* 39 */ (uint32_t *) default_handler,		// USART3
 	/* 40 */ (uint32_t *) default_handler,		// EXTI15_10 (EXTI Line[15:10] interrupts)
 	/* 41 */ (uint32_t *) default_handler,		// RTCAlarm (RTC alarm through EXTI line interrupt)
-	/* 42 */ (uint32_t *) default_handler,		// 
+	/* 42 */ (uint32_t *) USBInterrupt,			// USBWakeup
 	/* 43 */ (uint32_t *) default_handler,		// 
 	/* 44 */ (uint32_t *) default_handler,		// 
 	/* 45 */ (uint32_t *) default_handler,		// 
@@ -130,7 +131,15 @@ void startup(void){
 	memcpy(&_data_s, &_data_flash_addr, sizeof(size_t) * (&_data_e - &_data_s));
 	memset(&_bss_s, 0, &_bss_e - &_bss_s);
 
-	// SetClock_48MHz();
+	SetClock_48MHz();
+
+/* --- Set up systick --- */
+	// wait 500ms
+	SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
+	SysTick->CTRL |= SysTick_CTRL_CLKSOURCE_Msk; // Set the clock source to directly the system clock
+	SysTick->LOAD = 400000;
+	SysTick->VAL = 0;
+
 /* --- Enable GPIO ports --- */
 	GPIOEnable(GPIO_PORT_A);
 	GPIOEnable(GPIO_PORT_C);
@@ -144,15 +153,14 @@ void startup(void){
 	USARTInit();
 	USARTWrite("USART Initialized!\n");
 
+
 /* --- SETUP RTC --- */
 	InitRTC();
 
-/* --- Set up systick --- */
-	// wait 500ms
-	SysTick->CTRL |= SysTick_CTRL_ENABLE_Msk;
-	SysTick->CTRL |= SysTick_CTRL_CLKSOURCE_Msk; // Set the clock source to directly the system clock
-	SysTick->LOAD = 400000;
-	SysTick->VAL = 0;
+
+/* --- SETUP USB --- */
+	USBInit();
+
 	while(1){
 
 		if((SysTick->CTRL & SysTick_CTRL_COUNTFLAG_Msk) != 0){

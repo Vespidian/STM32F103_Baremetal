@@ -138,6 +138,20 @@ void USARTWriteHex(uint8_t num){
 	USARTWrite(str);
 }
 
+void USARTWriteBin8(uint8_t num){
+	char str[8] = "xxxxxxxx";
+	for(int i = 0; i < 8; i++){
+		str[i] = ((num >> (7 - i)) & 1) + '0';
+	}
+	USARTWrite(str);
+}
+
+void USARTWriteBin32(uint32_t num){
+	for(int i = 0; i < 4; i++){
+		USARTWriteBin8((num >> ((3 - i) * 8)) & 0xFF);
+	}
+}
+
 uint8_t USARTReadByte(){
 	uint8_t c = 0;
 	if(usart_buffer_rx_head != usart_buffer_rx_tail){

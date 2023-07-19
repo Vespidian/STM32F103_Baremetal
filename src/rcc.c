@@ -34,7 +34,7 @@ void SetClock_48MHz(){
 	while((RCC->CR & RCC_CR_PLLRDY) == 0); // Wait for PLLRDY
 
 	// Switch system clock to PLL
-	RCC->CFGR = RCC_CFGR_SW_PLL;
+	// RCC->CFGR = RCC_CFGR_SW_PLL;
 }
 
 /**

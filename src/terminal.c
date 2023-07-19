@@ -1,5 +1,6 @@
 #include "stdlib.h"
 #include "usart.h"
+#include "stm32f103xb.h"
 
 #include "rtc.h"
 
@@ -11,6 +12,7 @@ uint8_t command_buffer_index;
 char previous_char;
 
 void FuncHelp(const char *command_buffer);
+void FuncPrintRegister(const char *command_buffer);
 void FuncBlinkTime(const char *command_buffer);
 void FuncTime(const char *command_buffer);
 void FuncAlarm(const char *command_buffer);
@@ -20,6 +22,7 @@ void FuncLed(const char *command_buffer);
 
 const char *command_list[] = {
 	"help",
+	"reg",
 	"blinktime",
 	"time",
 	"alarm",
@@ -30,6 +33,7 @@ const char *command_list[] = {
 
 CommandFunction function_list[] = {
 	FuncHelp,
+	FuncPrintRegister,
 	FuncBlinkTime,
 	FuncTime,
 	FuncAlarm,
@@ -113,6 +117,38 @@ unsigned int StrToInt(const char *str, char delimiter){
 				num += (str[i] - '0') * digit;
 				digit *= 10;
 			}
+		}
+	}
+	return num;
+}
+
+unsigned int HexStrToInt(const char *hex){
+	unsigned int num = 0;;
+	if(hex != NULL){
+
+		// If there is a '0x' prefix, get rid of it
+		if(hex[0] == '0' && hex[1] == 'x'){
+			hex += 2;
+		}
+		size_t num_digits = StringLength(hex, 0);
+		
+		// If there are more than 8 digits to the number, return zero since we cant hold more than a 32-bit num
+		if(num_digits > 8){
+			return 0;
+		}
+
+		for(int i = 0; i < num_digits; i++){
+			char offset_char = 0;
+			if(hex[i] <= '9' && hex[i] >= '0'){
+				offset_char = '0';
+			}else if(hex[i] <= 'F' && hex[i] >= 'A'){
+				offset_char = 'A' - 10;
+			}else if(hex[i] <= 'f' && hex[i] >= 'a'){
+				offset_char = 'a' - 10;
+			}else{
+				return 0;
+			}
+			num += (hex[i] - offset_char) << ((num_digits - 1 - i) * 4);
 		}
 	}
 	return num;
@@ -230,7 +266,12 @@ void FuncHelp(const char *command_buffer){
 	USARTWrite("\n");
 }
 
-#include "stm32f103xb.h"
+void FuncPrintRegister(const char *command_buffer){
+	unsigned int *reg = HexStrToInt(command_buffer = (FindChar(command_buffer, ' ') + 1));
+	USARTWriteBin32(*reg);
+
+}
+
 void FuncBlinkTime(const char *command_buffer){
 	if(StringCompare(command_buffer = (FindChar(command_buffer, ' ') + 1), "set", ' ')){
 		// Set

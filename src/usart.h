@@ -15,6 +15,8 @@ void USARTWriteByte(uint8_t byte);
 void USARTWrite(const char *str);
 void USARTWriteInt(uint32_t num);
 void USARTWriteHex(uint8_t num);
+void USARTWriteBin8(uint8_t num);
+void USARTWriteBin32(uint32_t num);
 
 uint8_t USARTReadByte();
 
